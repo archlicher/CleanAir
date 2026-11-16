@@ -2,6 +2,8 @@
 
 namespace App\Jobs;
 
+use App\Services\AirQuality\EeaAirQualityProvider;
+use App\Services\AirQuality\MeasurementImporter;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
@@ -9,19 +11,18 @@ class CollectStationMeasurements implements ShouldQueue
 {
     use Queueable;
 
-    /**
-     * Create a new job instance.
-     */
-    public function __construct()
-    {
-        //
-    }
+    public int $tries = 3;
 
-    /**
-     * Execute the job.
-     */
-    public function handle(): void
+    public int $timeout = 900;
+
+    public function __construct(
+        public string $from,
+        public string $to,
+    ) {}
+
+    public function handle(EeaAirQualityProvider $provider, MeasurementImporter $importer): void
     {
-        //
+        $files = $provider->download($this->from, $this->to);
+        $importer->import($files);
     }
 }

@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'eea' => [
+        'url' => env('EEA_API_URL', 'https://eeadmz1-downloads-api-appservice.azurewebsites.net'),
+        'country' => env('EEA_COUNTRY', 'BG'),
+        'pollutant' => env('EEA_POLLUTANT', 'PM2.5'),
+        'email' => env('EEA_CONTACT_EMAIL'),
+    ],
+
 ];
