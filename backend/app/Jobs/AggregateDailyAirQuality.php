@@ -2,26 +2,21 @@
 
 namespace App\Jobs;
 
+use App\Services\AirQuality\AirQualityAggregator;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Cache;
 
 class AggregateDailyAirQuality implements ShouldQueue
 {
     use Queueable;
 
-    /**
-     * Create a new job instance.
-     */
-    public function __construct()
-    {
-        //
-    }
+    public int $timeout = 900;
 
-    /**
-     * Execute the job.
-     */
-    public function handle(): void
+    public function handle(AirQualityAggregator $aggregator): void
     {
-        //
+        $aggregator->aggregate();
+
+        Cache::flush();
     }
 }

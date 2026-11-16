@@ -6,30 +6,26 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::create('daily_air_quality', function (Blueprint $table) {
+        Schema::create('daily_air_qualities', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('city_id')->constrained()->onDelete('cascade');
+            $table->foreignId('city_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('station_id')->constrained()->cascadeOnDelete();
+            $table->string('pollutant', 32);
             $table->date('date');
-            $table->string('pollutant');
-            $table->decimal('average_value', 10, 2);
-            $table->integer('valid_measurements');     
-            $table->integer('expected_measurements');     
-            $table->decimal('coverage_percentage', 10, 2);
-            $table->integer('station_count');    
-            $table->timestamps();
+            $table->decimal('mean_value', 10, 3);
+            $table->unsignedSmallInteger('valid_hours');
+            $table->decimal('coverage_ratio', 5, 4);
+            $table->unsignedTinyInteger('source_dataset')->nullable();
+
+            $table->unique(['station_id', 'pollutant', 'date']);
+            $table->index(['city_id', 'pollutant', 'date']);
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::dropIfExists('daily_air_quality');
+        Schema::dropIfExists('daily_air_qualities');
     }
 };
