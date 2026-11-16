@@ -1,0 +1,122 @@
+name: clean-air-finder
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-clean_air}
+      POSTGRES_USER: ${DB_USERNAME:-clean_air}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-clean_air}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USERNAME:-clean_air} -d ${DB_DATABASE:-clean_air}']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  app:
+    build:
+      context: ./backend
+    environment: &app-environment
+      APP_NAME: Clean Air Finder
+      APP_ENV: ${APP_ENV:-local}
+      APP_DEBUG: ${APP_DEBUG:-true}
+      APP_URL: ${APP_URL:-http://localhost:8080}
+      RUN_MIGRATIONS: 'true'
+      LOG_CHANNEL: stderr
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE:-clean_air}
+      DB_USERNAME: ${DB_USERNAME:-clean_air}
+      DB_PASSWORD: ${DB_PASSWORD:-clean_air}
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+      SESSION_DRIVER: database
+      REDIS_CLIENT: phpredis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      EEA_API_URL: ${EEA_API_URL:-https://eeadmz1-downloads-api-appservice.azurewebsites.net}
+      EEA_COUNTRY: ${EEA_COUNTRY:-BG}
+      EEA_POLLUTANT: ${EEA_POLLUTANT:-PM2.5}
+      EEA_CONTACT_EMAIL: ${EEA_CONTACT_EMAIL:-}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8080}
+    volumes:
+      - app_storage:/var/www/html/storage
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'php artisan about >/dev/null 2>&1 || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ./backend
+    environment:
+      <<: *app-environment
+      RUN_MIGRATIONS: 'false'
+    volumes:
+      - app_storage:/var/www/html/storage
+    command: ['php', 'artisan', 'queue:work', '--tries=3', '--timeout=900', '--sleep=3']
+    depends_on:
+      app:
+        condition: service_started
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  scheduler:
+    build:
+      context: ./backend
+    environment:
+      <<: *app-environment
+      RUN_MIGRATIONS: 'false'
+    volumes:
+      - app_storage:/var/www/html/storage
+    command: ['php', 'artisan', 'schedule:work']
+    depends_on:
+      app:
+        condition: service_started
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./frontend
+    ports:
+      - '${WEB_PORT:-8080}:80'
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  db_data:
+  redis_data:
+  app_storage:
